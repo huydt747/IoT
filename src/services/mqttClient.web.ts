@@ -1,7 +1,7 @@
 import mqtt from 'mqtt';
 import { MqttHandlers, MqttUnsubscribe } from './mqttTypes';
 
-const MQTT_TOPIC = 'test';
+const MQTT_TOPIC = process.env.EXPO_PUBLIC_MQTT_TOPIC || 'esp8266/dht11';
 
 export function connectToColdStorageMqtt(handlers: MqttHandlers): MqttUnsubscribe {
   const url = process.env.EXPO_PUBLIC_MQTT_URL;
