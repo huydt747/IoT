@@ -1,0 +1,210 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+export interface TempRecord {
+  id: string;
+  timeStr: string;
+  timestamp: number;
+  temperature: number;
+  humidity: number;
+  doorOpen: boolean;
+  exposureSec: number;
+  isAlert: boolean;
+}
+
+export interface AlertRecord {
+  id: string;
+  timeStr: string;
+  timestamp: number;
+  type: 'door_timeout' | 'temp_critical';
+  title: string;
+  description: string;
+}
+
+export interface ColdStorageState {
+  temperature: number;
+  humidity: number;
+  doorOpen: boolean;
+  exposureSec: number;
+  tempThreshold: number; // default -15.0 °C
+  doorThresholdSec: number; // default 180s (3 minutes)
+  isTempCritical: boolean;
+  isBuzzerActive: boolean;
+  isLedActive: boolean;
+  history: TempRecord[];
+  alerts: AlertRecord[];
+  connectionStatus: 'connected' | 'connecting' | 'simulated';
+  minTemp: number;
+  maxTemp: number;
+  avgTemp: number;
+  toggleDoorSim: () => void;
+  setTemperatureDirect: (temp: number) => void;
+  clearHistory: () => void;
+}
+
+const ColdStorageContext = createContext<ColdStorageState | undefined>(undefined);
+
+export function useColdStorage() {
+  const ctx = useContext(ColdStorageContext);
+  if (!ctx) {
+    throw new Error('useColdStorage must be used within a ColdStorageProvider');
+  }
+  return ctx;
+}
+
+const INITIAL_RECORDS: TempRecord[] = [
+  { id: '1', timeStr: '09:00:00', timestamp: Date.now() - 900000, temperature: -19.2, humidity: 76.5, doorOpen: false, exposureSec: 0, isAlert: false },
+  { id: '2', timeStr: '09:03:00', timestamp: Date.now() - 720000, temperature: -18.8, humidity: 77.0, doorOpen: false, exposureSec: 0, isAlert: false },
+  { id: '3', timeStr: '09:06:00', timestamp: Date.now() - 540000, temperature: -18.4, humidity: 77.8, doorOpen: false, exposureSec: 0, isAlert: false },
+  { id: '4', timeStr: '09:09:00', timestamp: Date.now() - 360000, temperature: -17.9, humidity: 78.2, doorOpen: false, exposureSec: 0, isAlert: false },
+  { id: '5', timeStr: '09:12:00', timestamp: Date.now() - 180000, temperature: -18.1, humidity: 77.5, doorOpen: false, exposureSec: 0, isAlert: false },
+  { id: '6', timeStr: '09:14:00', timestamp: Date.now() - 60000, temperature: -18.3, humidity: 76.8, doorOpen: false, exposureSec: 0, isAlert: false },
+];
+
+export function ColdStorageProvider({ children }: { children: ReactNode }) {
+  const [temperature, setTemperature] = useState<number>(-18.3);
+  const [humidity, setHumidity] = useState<number>(76.8);
+  const [doorOpen, setDoorOpen] = useState<boolean>(false);
+  const [exposureSec, setExposureSec] = useState<number>(0);
+  const [tempThreshold] = useState<number>(-15.0);
+  const [doorThresholdSec] = useState<number>(180);
+  const [history, setHistory] = useState<TempRecord[]>(INITIAL_RECORDS);
+  const [alerts, setAlerts] = useState<AlertRecord[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'simulated'>('simulated');
+
+  const isTempCritical = temperature > tempThreshold;
+  const isDoorOverLimit = doorOpen && exposureSec > doorThresholdSec;
+  const isBuzzerActive = isTempCritical || isDoorOverLimit;
+  const isLedActive = isBuzzerActive;
+
+  // Door exposure timer
+  useEffect(() => {
+    let timer: any = null;
+    if (doorOpen) {
+      timer = setInterval(() => {
+        setExposureSec((prev) => {
+          const next = prev + 1;
+          if (next === doorThresholdSec) {
+            // Trigger alert
+            const now = new Date();
+            const timeStr = now.toTimeString().split(' ')[0];
+            setAlerts((a) => [
+              {
+                id: Date.now().toString(),
+                timeStr,
+                timestamp: Date.now(),
+                type: 'door_timeout',
+                title: 'Cảnh báo: Cửa mở quá 3 phút',
+                description: `Cửa kho lạnh đã mở quá ${doorThresholdSec} giây, nhiệt độ có nguy cơ tăng nhanh!`,
+              },
+              ...a,
+            ]);
+          }
+          return next;
+        });
+      }, 1000);
+    } else {
+      setExposureSec(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [doorOpen, doorThresholdSec]);
+
+  // Periodic Telemetry Simulator matching Wokwi (every 5 seconds like in ArduinoCode.ino)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTemperature((curr) => {
+        // slight fluctuation around -18.5°C, or warmer if door is open
+        const delta = doorOpen ? +(Math.random() * 0.4 + 0.1) : (Math.random() * 0.4 - 0.2);
+        const nextTemp = parseFloat((curr + delta).toFixed(2));
+        
+        const now = new Date();
+        const timeStr = now.toTimeString().split(' ')[0];
+        
+        const newRecord: TempRecord = {
+          id: Date.now().toString(),
+          timeStr,
+          timestamp: Date.now(),
+          temperature: nextTemp,
+          humidity: parseFloat((76 + Math.random() * 3).toFixed(1)),
+          doorOpen,
+          exposureSec,
+          isAlert: nextTemp > tempThreshold,
+        };
+
+        setHistory((prev) => [newRecord, ...prev.slice(0, 49)]);
+
+        // Check if critical temp reached
+        if (nextTemp > tempThreshold) {
+          setAlerts((a) => {
+            if (a.length > 0 && a[0].type === 'temp_critical' && Date.now() - a[0].timestamp < 60000) {
+              return a; // avoid duplicate alert within 1 minute
+            }
+            return [
+              {
+                id: Date.now().toString(),
+                timeStr,
+                timestamp: Date.now(),
+                type: 'temp_critical',
+                title: 'Cảnh báo: Nhiệt độ vượt ngưỡng!',
+                description: `Nhiệt độ hiện tại ${nextTemp}°C cao hơn mức an toàn ${tempThreshold}°C!`,
+              },
+              ...a,
+            ];
+          });
+        }
+
+        return nextTemp;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [doorOpen, exposureSec, tempThreshold]);
+
+  // Calculate stats
+  const temps = history.map((h) => h.temperature);
+  const minTemp = temps.length > 0 ? Math.min(...temps) : temperature;
+  const maxTemp = temps.length > 0 ? Math.max(...temps) : temperature;
+  const avgTemp = temps.length > 0
+    ? parseFloat((temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1))
+    : temperature;
+
+  const toggleDoorSim = () => {
+    setDoorOpen((prev) => !prev);
+  };
+
+  const setTemperatureDirect = (newTemp: number) => {
+    setTemperature(newTemp);
+  };
+
+  const clearHistory = () => {
+    setHistory([]);
+  };
+
+  return (
+    <ColdStorageContext.Provider
+      value={{
+        temperature,
+        humidity,
+        doorOpen,
+        exposureSec,
+        tempThreshold,
+        doorThresholdSec,
+        isTempCritical,
+        isBuzzerActive,
+        isLedActive,
+        history,
+        alerts,
+        connectionStatus,
+        minTemp,
+        maxTemp,
+        avgTemp,
+        toggleDoorSim,
+        setTemperatureDirect,
+        clearHistory,
+      }}
+    >
+      {children}
+    </ColdStorageContext.Provider>
+  );
+}
