@@ -15,25 +15,36 @@ export default function ColdStorageHomeScreen() {
     humidity,
     doorOpen,
     exposureSec,
-    tempThreshold,
     isTempCritical,
     isBuzzerActive,
     alerts,
+    hasTelemetry,
+    connectionStatus,
+    connectionError,
     toggleDoorSim,
     setTemperatureDirect,
   } = useColdStorage();
 
   const isSafe = !isTempCritical;
   const tempColor = isSafe ? '#0984e3' : '#d63031';
+  const connectionLabel = {
+    connected: 'Wokwi ESP32 • MQTT Online',
+    connecting: 'Đang kết nối MQTT...',
+    offline: 'MQTT mất kết nối',
+    error: 'Lỗi MQTT',
+    simulated: 'Đang mô phỏng',
+  }[connectionStatus];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Top Storage Overview Card */}
       <View style={styles.overviewCard}>
         <View style={styles.badgeRow}>
-          <View style={styles.connectionBadge}>
-            <View style={styles.greenDot} />
-            <Text style={styles.connectionText}>Wokwi ESP32 • MQTT Online</Text>
+          <View style={[styles.connectionBadge, connectionStatus !== 'connected' && styles.connectionBadgeInactive]}>
+            <View style={[styles.greenDot, connectionStatus !== 'connected' && styles.inactiveDot]} />
+            <Text style={[styles.connectionText, connectionStatus !== 'connected' && styles.inactiveConnectionText]}>
+              {connectionLabel}
+            </Text>
           </View>
           {isBuzzerActive && (
             <View style={styles.alertBadge}>
@@ -44,8 +55,9 @@ export default function ColdStorageHomeScreen() {
 
         <Text style={styles.warehouseTitle}>Kho Lạnh Bảo Quản Đông Sâu</Text>
         <Text style={styles.warehouseDesc}>
-          Topic: kholanh/esp32/nhietdo | Server: EMQX
+          Topic: test | Server: EMQX
         </Text>
+        {connectionError && <Text style={styles.connectionError}>{connectionError}</Text>}
 
         <View style={styles.quickMetricsRow}>
           {/* Quick Temp */}
@@ -56,10 +68,14 @@ export default function ColdStorageHomeScreen() {
           >
             <Text style={styles.quickMetricLabel}>Nhiệt độ (DHT22)</Text>
             <Text style={[styles.quickMetricVal, { color: tempColor }]}>
-              {temperature.toFixed(1)}°C
+              {hasTelemetry ? `${temperature.toFixed(1)}°C` : '—'}
             </Text>
             <Text style={[styles.quickMetricSub, { color: tempColor }]}>
-              {isSafe ? '❄️ An toàn' : '⚠️ Quá nhiệt'}
+              {hasTelemetry
+                ? isSafe
+                  ? '❄️ An toàn'
+                  : '⚠️ Quá nhiệt'
+                : 'Chờ dữ liệu MQTT'}
             </Text>
           </TouchableOpacity>
 
@@ -67,7 +83,7 @@ export default function ColdStorageHomeScreen() {
           <View style={styles.quickMetricBox}>
             <Text style={styles.quickMetricLabel}>Độ ẩm</Text>
             <Text style={[styles.quickMetricVal, { color: '#00b894' }]}>
-              {humidity.toFixed(1)}%
+              {hasTelemetry ? `${humidity.toFixed(1)}%` : '—'}
             </Text>
             <Text style={styles.quickMetricSub}>Độ ẩm tối ưu</Text>
           </View>
@@ -85,10 +101,10 @@ export default function ColdStorageHomeScreen() {
                 { color: doorOpen ? '#e67e22' : '#2ed573' },
               ]}
             >
-              {doorOpen ? 'ĐANG MỞ' : 'ĐÓNG'}
+              {hasTelemetry ? (doorOpen ? 'ĐANG MỞ' : 'ĐÓNG') : '—'}
             </Text>
             <Text style={styles.quickMetricSub}>
-              {doorOpen ? `${exposureSec}s` : 'Kín khít'}
+              {hasTelemetry ? (doorOpen ? `${exposureSec}s` : 'Kín khít') : 'Chờ dữ liệu'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -110,7 +126,7 @@ export default function ColdStorageHomeScreen() {
           <View style={styles.menuTitleRow}>
             <Text style={styles.menuTitle}>Giám Sát Nhiệt Độ & Lịch Sử</Text>
             <Text style={[styles.menuHighlight, { color: tempColor }]}>
-              {temperature.toFixed(1)}°C
+              {hasTelemetry ? `${temperature.toFixed(1)}°C` : '—'}
             </Text>
           </View>
           <Text style={styles.menuSubtitle}>
@@ -174,28 +190,30 @@ export default function ColdStorageHomeScreen() {
       </TouchableOpacity>
 
       {/* Quick Test / Simulator Controls for Wokwi testing */}
-      <View style={styles.testSection}>
-        <Text style={styles.testTitle}>Công Cụ Kiểm Thử Nhanh Wokwi</Text>
-        <View style={styles.testButtonsRow}>
-          <TouchableOpacity
-            style={[styles.testBtn, { backgroundColor: doorOpen ? '#2ed573' : '#e67e22' }]}
-            onPress={toggleDoorSim}
-          >
-            <Text style={styles.testBtnText}>
-              {doorOpen ? 'Đóng Cửa Kho' : 'Mở Cửa Kho (Pin 14)'}
-            </Text>
-          </TouchableOpacity>
+      {connectionStatus === 'simulated' && (
+        <View style={styles.testSection}>
+          <Text style={styles.testTitle}>Công Cụ Kiểm Thử Nhanh Wokwi</Text>
+          <View style={styles.testButtonsRow}>
+            <TouchableOpacity
+              style={[styles.testBtn, { backgroundColor: doorOpen ? '#2ed573' : '#e67e22' }]}
+              onPress={toggleDoorSim}
+            >
+              <Text style={styles.testBtnText}>
+                {doorOpen ? 'Đóng Cửa Kho' : 'Mở Cửa Kho (Pin 14)'}
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.testBtn, { backgroundColor: isTempCritical ? '#0984e3' : '#d63031' }]}
-            onPress={() => setTemperatureDirect(isTempCritical ? -18.5 : -12.0)}
-          >
-            <Text style={styles.testBtnText}>
-              {isTempCritical ? 'Hạ nhiệt (-18.5°C)' : 'Thử quá nhiệt (-12°C)'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.testBtn, { backgroundColor: isTempCritical ? '#0984e3' : '#d63031' }]}
+              onPress={() => setTemperatureDirect(isTempCritical ? -18.5 : -12.0)}
+            >
+              <Text style={styles.testBtnText}>
+                {isTempCritical ? 'Hạ nhiệt (-18.5°C)' : 'Thử quá nhiệt (-12°C)'}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
     </ScrollView>
   );
 }
@@ -234,6 +252,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
+  connectionBadgeInactive: {
+    backgroundColor: '#fff3e0',
+  },
   greenDot: {
     width: 8,
     height: 8,
@@ -241,10 +262,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#2e7d32',
     marginRight: 6,
   },
+  inactiveDot: {
+    backgroundColor: '#e67e22',
+  },
   connectionText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#2e7d32',
+  },
+  inactiveConnectionText: {
+    color: '#b45f06',
+  },
+  connectionError: {
+    color: '#d63031',
+    fontSize: 12,
+    marginBottom: 10,
   },
   alertBadge: {
     backgroundColor: '#ffebee',

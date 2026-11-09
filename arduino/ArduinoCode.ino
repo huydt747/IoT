@@ -9,20 +9,22 @@
 #define BUTTON_PIN  14      // Nút mô phỏng cửa
 #define LED_PIN     2       // LED cảnh báo
 #define BUZZER_PIN  4       // Buzzer cảnh báo
+#define LDR_PIN 34
+#define LIGHT_PIN 18
 
 DHT dht(DHTPIN, DHTTYPE);
 
 // ===== CẤU HÌNH WIFI & MQTT =====
 const char* ssid        = "Wokwi-GUEST";
 const char* password    = "";
-const char* mqtt_server = "o3e70108.ala.eu-central-1.emqxsl.com";  // EMQX Serverless của bạn
+const char* mqtt_server = "rbd0db1d.ala.asia-southeast1.emqxsl.com";  // EMQX Serverless của bạn
 const int   mqtt_port   = 8883;
-const char* mqtt_user   = "1";   // Điền từ EMQX Dashboard
-const char* mqtt_pass   = "12345";   // Điền từ EMQX Dashboard
+const char* mqtt_user   = "3sv";   // Điền từ EMQX Dashboard
+const char* mqtt_pass   = "1234567890";   // Điền từ EMQX Dashboard
 
 // ===== TOPIC =====
-const char* topic_data    = "kholanh/esp32/nhietdo";
-const char* topic_alert   = "kholanh/esp32/canhbao/cua";
+const char* topic_data    = "test";
+const char* topic_alert   = "test";
 
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
@@ -35,14 +37,28 @@ const unsigned long DOOR_THRESHOLD_MS = 180000;  // 3 phút = 180000ms (demo có
 const float TEMP_THRESHOLD = -15.0;     // Ngưỡng nhiệt độ an toàn cho kho đông
 
 void setup_wifi() {
-  Serial.print("Connecting WiFi");
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
+  Serial.println("Dang ket noi WiFi...");
+
+  WiFi.mode(WIFI_STA);
+
+  // Wokwi-GUEST su dung kenh 6
+  WiFi.begin(ssid, password, 6);
+
+  int count = 0;
+
+  while (WiFi.status() != WL_CONNECTED && count < 30) {
     delay(500);
     Serial.print(".");
+    count++;
   }
-  Serial.println(" OK");
-  Serial.print("IP: "); Serial.println(WiFi.localIP());
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi ket noi thanh cong!");
+    Serial.print("IP: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("\nKhong the ket noi WiFi!");
+  }
 }
 
 void reconnect() {
@@ -73,11 +89,31 @@ void setup() {
 
   espClient.setInsecure();
   client.setServer(mqtt_server, mqtt_port);
+
+  pinMode(LDR_PIN, INPUT);
+  pinMode(LIGHT_PIN, OUTPUT);
+  digitalWrite(LIGHT_PIN, LOW);
 }
 
 void loop() {
   if (!client.connected()) reconnect();
   client.loop();
+
+  // ===== ĐỌC CẢM BIẾN ÁNH SÁNG =====
+  int lightValue = analogRead(LDR_PIN);
+
+  Serial.print("Cuong do anh sang: ");
+  Serial.println(lightValue);
+
+  // ===== ĐIỀU KHIỂN ĐÈN KHO LẠNH =====
+  if (doorOpen) {
+    digitalWrite(LIGHT_PIN, HIGH);
+    Serial.println("DEN KHO: BAT");
+  } 
+  else {
+    digitalWrite(LIGHT_PIN, LOW);
+    Serial.println("DEN KHO: TAT");
+  }
 
   // ===== ĐỌC CẢM BIẾN =====
   float temp = dht.readTemperature();

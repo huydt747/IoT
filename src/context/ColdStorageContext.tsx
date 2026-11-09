@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { Platform } from 'react-native';
+import { connectToColdStorageMqtt } from '../services/mqttClient';
 
 export interface TempRecord {
   id: string;
@@ -32,7 +34,9 @@ export interface ColdStorageState {
   isLedActive: boolean;
   history: TempRecord[];
   alerts: AlertRecord[];
-  connectionStatus: 'connected' | 'connecting' | 'simulated';
+  hasTelemetry: boolean;
+  connectionStatus: 'connected' | 'connecting' | 'offline' | 'error' | 'simulated';
+  connectionError: string | null;
   minTemp: number;
   maxTemp: number;
   avgTemp: number;
@@ -61,24 +65,108 @@ const INITIAL_RECORDS: TempRecord[] = [
 ];
 
 export function ColdStorageProvider({ children }: { children: ReactNode }) {
-  const [temperature, setTemperature] = useState<number>(-18.3);
-  const [humidity, setHumidity] = useState<number>(76.8);
+  const [temperature, setTemperature] = useState<number>(Platform.OS === 'web' ? 0 : -18.3);
+  const [humidity, setHumidity] = useState<number>(Platform.OS === 'web' ? 0 : 76.8);
   const [doorOpen, setDoorOpen] = useState<boolean>(false);
   const [exposureSec, setExposureSec] = useState<number>(0);
   const [tempThreshold] = useState<number>(-15.0);
   const [doorThresholdSec] = useState<number>(180);
-  const [history, setHistory] = useState<TempRecord[]>(INITIAL_RECORDS);
+  const [history, setHistory] = useState<TempRecord[]>(
+    Platform.OS === 'web' ? [] : INITIAL_RECORDS,
+  );
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'simulated'>('simulated');
+  const [hasTelemetry, setHasTelemetry] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<
+    'connected' | 'connecting' | 'offline' | 'error' | 'simulated'
+  >(Platform.OS === 'web' ? 'connecting' : 'simulated');
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  const isTempCritical = temperature > tempThreshold;
+  const isTempCritical = hasTelemetry && temperature > tempThreshold;
   const isDoorOverLimit = doorOpen && exposureSec > doorThresholdSec;
   const isBuzzerActive = isTempCritical || isDoorOverLimit;
   const isLedActive = isBuzzerActive;
 
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+
+    return connectToColdStorageMqtt({
+      onTelemetry: (telemetry) => {
+        const now = new Date();
+        const timestamp = now.getTime();
+        const timeStr = now.toTimeString().split(' ')[0];
+
+        setTemperature(telemetry.temperature);
+        setHumidity(telemetry.humidity);
+        setDoorOpen(telemetry.doorOpen);
+        setExposureSec(telemetry.exposureSec);
+        setHasTelemetry(true);
+        setHistory((previous) => [
+          {
+            id: timestamp.toString(),
+            timeStr,
+            timestamp,
+            temperature: telemetry.temperature,
+            humidity: telemetry.humidity,
+            doorOpen: telemetry.doorOpen,
+            exposureSec: telemetry.exposureSec,
+            isAlert: telemetry.temperature > tempThreshold,
+          },
+          ...previous.slice(0, 49),
+        ]);
+
+        if (telemetry.temperature > tempThreshold) {
+          setAlerts((previous) => {
+            const alreadyReported = previous.some(
+              (alert) =>
+                alert.type === 'temp_critical' &&
+                timestamp - alert.timestamp < 60000,
+            );
+            if (alreadyReported) return previous;
+            return [
+              {
+                id: timestamp.toString(),
+                timeStr,
+                timestamp,
+                type: 'temp_critical',
+                title: 'Cảnh báo: Nhiệt độ vượt ngưỡng!',
+                description: `Nhiệt độ hiện tại ${telemetry.temperature}°C cao hơn mức an toàn ${tempThreshold}°C!`,
+              },
+              ...previous,
+            ];
+          });
+        }
+      },
+      onAlert: (durationMs) => {
+        const now = new Date();
+        const timestamp = now.getTime();
+        setAlerts((previous) => [
+          {
+            id: timestamp.toString(),
+            timeStr: now.toTimeString().split(' ')[0],
+            timestamp,
+            type: 'door_timeout',
+            title: 'Cảnh báo: Cửa mở quá lâu',
+            description: `Cửa kho lạnh đã mở ${Math.floor(durationMs / 1000)} giây.`,
+          },
+          ...previous,
+        ]);
+      },
+      onStatus: (status) => {
+        setConnectionStatus(status);
+        if (status === 'connected') setConnectionError(null);
+      },
+      onError: (message) => {
+        setConnectionStatus('error');
+        setConnectionError(message);
+      },
+    });
+  }, [tempThreshold]);
+
   // Door exposure timer
   useEffect(() => {
-    let timer: any = null;
+    if (Platform.OS === 'web') return;
+
+    let timer: ReturnType<typeof setInterval> | undefined;
     if (doorOpen) {
       timer = setInterval(() => {
         setExposureSec((prev) => {
@@ -102,8 +190,6 @@ export function ColdStorageProvider({ children }: { children: ReactNode }) {
           return next;
         });
       }, 1000);
-    } else {
-      setExposureSec(0);
     }
     return () => {
       if (timer) clearInterval(timer);
@@ -112,6 +198,8 @@ export function ColdStorageProvider({ children }: { children: ReactNode }) {
 
   // Periodic Telemetry Simulator matching Wokwi (every 5 seconds like in ArduinoCode.ino)
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
     const interval = setInterval(() => {
       setTemperature((curr) => {
         // slight fluctuation around -18.5°C, or warmer if door is open
@@ -132,6 +220,8 @@ export function ColdStorageProvider({ children }: { children: ReactNode }) {
           isAlert: nextTemp > tempThreshold,
         };
 
+        setHumidity(newRecord.humidity);
+        setHasTelemetry(true);
         setHistory((prev) => [newRecord, ...prev.slice(0, 49)]);
 
         // Check if critical temp reached
@@ -170,7 +260,8 @@ export function ColdStorageProvider({ children }: { children: ReactNode }) {
     : temperature;
 
   const toggleDoorSim = () => {
-    setDoorOpen((prev) => !prev);
+    if (doorOpen) setExposureSec(0);
+    setDoorOpen(!doorOpen);
   };
 
   const setTemperatureDirect = (newTemp: number) => {
@@ -195,7 +286,9 @@ export function ColdStorageProvider({ children }: { children: ReactNode }) {
         isLedActive,
         history,
         alerts,
+        hasTelemetry,
         connectionStatus,
+        connectionError,
         minTemp,
         maxTemp,
         avgTemp,

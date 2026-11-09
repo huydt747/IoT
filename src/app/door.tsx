@@ -9,6 +9,8 @@ export default function DoorScreen() {
     doorThresholdSec,
     isBuzzerActive,
     isLedActive,
+    hasTelemetry,
+    connectionStatus,
     toggleDoorSim,
   } = useColdStorage();
 
@@ -37,21 +39,27 @@ export default function DoorScreen() {
             { color: doorOpen ? (isOverLimit ? '#d63031' : '#e67e22') : '#2ed573' },
           ]}
         >
-          {doorOpen ? '🚪 CỬA ĐANG MỞ' : '🔒 CỬA ĐÃ ĐÓNG KÍN'}
+          {!hasTelemetry
+            ? 'ĐANG CHỜ DỮ LIỆU ESP32'
+            : doorOpen
+              ? '🚪 CỬA ĐANG MỞ'
+              : '🔒 CỬA ĐÃ ĐÓNG KÍN'}
         </Text>
 
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={toggleDoorSim}
-          style={[
-            styles.simBtn,
-            { backgroundColor: doorOpen ? '#2ed573' : '#e67e22' },
-          ]}
-        >
-          <Text style={styles.simBtnText}>
-            {doorOpen ? 'Mô phỏng Đóng cửa' : 'Mô phỏng Nhấn nút Mở cửa (Pin 14)'}
-          </Text>
-        </TouchableOpacity>
+        {connectionStatus === 'simulated' && (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={toggleDoorSim}
+            style={[
+              styles.simBtn,
+              { backgroundColor: doorOpen ? '#2ed573' : '#e67e22' },
+            ]}
+          >
+            <Text style={styles.simBtnText}>
+              {doorOpen ? 'Mô phỏng Đóng cửa' : 'Mô phỏng Nhấn nút Mở cửa (Pin 14)'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Exposure Timer */}
@@ -63,7 +71,7 @@ export default function DoorScreen() {
 
         <View style={styles.timerRow}>
           <Text style={[styles.timerValue, { color: isOverLimit ? '#d63031' : '#2d3436' }]}>
-            {formatSec(exposureSec)}
+            {hasTelemetry ? formatSec(exposureSec) : 'Đang chờ dữ liệu...'}
           </Text>
         </View>
 
@@ -88,7 +96,7 @@ export default function DoorScreen() {
         {isOverLimit && (
           <View style={styles.warningBox}>
             <Text style={styles.warningText}>
-              ⚠️ CẢNH BÁO: Cửa mở quá {doorThresholdSec / 60} phút! Đã gửi thông báo đến MQTT topic "kholanh/esp32/canhbao/cua".
+              ⚠️ CẢNH BÁO: Cửa mở quá {doorThresholdSec / 60} phút! Cảnh báo được gửi lên MQTT topic &quot;test&quot;.
             </Text>
           </View>
         )}

@@ -5,10 +5,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
 } from 'react-native';
-import { router } from 'expo-router';
-import { useColdStorage, TempRecord } from '../context/ColdStorageContext';
+import { useColdStorage } from '../context/ColdStorageContext';
 
 export default function TemperatureScreen() {
   const {
@@ -19,13 +17,18 @@ export default function TemperatureScreen() {
     maxTemp,
     avgTemp,
     history,
+    hasTelemetry,
     clearHistory,
   } = useColdStorage();
 
   const isSafe = !isTempCritical;
   const statusColor = isSafe ? '#0984e3' : '#d63031';
   const statusBg = isSafe ? '#e1f0fa' : '#ffebee';
-  const statusText = isSafe ? 'ĐẠT CHUẨN ĐÔNG SÂU (AN TOÀN)' : 'CẢNH BÁO: VƯỢT NGƯỠNG!';
+  const statusText = !hasTelemetry
+    ? 'ĐANG CHỜ DỮ LIỆU MQTT'
+    : isSafe
+      ? 'ĐẠT CHUẨN ĐÔNG SÂU (AN TOÀN)'
+      : 'CẢNH BÁO: VƯỢT NGƯỠNG!';
 
   // Chart data: recent 12 points
   const recentPoints = history.slice(0, 12).reverse();
@@ -45,7 +48,11 @@ export default function TemperatureScreen() {
 
         <View style={styles.tempDisplayContainer}>
           <Text style={[styles.tempValue, { color: statusColor }]}>
-            {temperature > 0 ? `+${temperature.toFixed(1)}` : temperature.toFixed(1)}
+            {hasTelemetry
+              ? temperature > 0
+                ? `+${temperature.toFixed(1)}`
+                : temperature.toFixed(1)
+              : '—'}
           </Text>
           <Text style={[styles.tempUnit, { color: statusColor }]}>°C</Text>
         </View>
@@ -60,19 +67,19 @@ export default function TemperatureScreen() {
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Thấp nhất</Text>
           <Text style={[styles.statValue, { color: '#0984e3' }]}>
-            {minTemp.toFixed(1)}°C
+            {hasTelemetry ? `${minTemp.toFixed(1)}°C` : '—'}
           </Text>
         </View>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Trung bình</Text>
           <Text style={[styles.statValue, { color: '#2d3436' }]}>
-            {avgTemp.toFixed(1)}°C
+            {hasTelemetry ? `${avgTemp.toFixed(1)}°C` : '—'}
           </Text>
         </View>
         <View style={styles.statBox}>
           <Text style={styles.statLabel}>Cao nhất</Text>
           <Text style={[styles.statValue, { color: maxTemp > tempThreshold ? '#d63031' : '#e67e22' }]}>
-            {maxTemp.toFixed(1)}°C
+            {hasTelemetry ? `${maxTemp.toFixed(1)}°C` : '—'}
           </Text>
         </View>
       </View>
@@ -174,6 +181,9 @@ export default function TemperatureScreen() {
             </View>
           );
         })}
+        {!hasTelemetry && (
+          <Text style={styles.sectionSubtitle}>Chưa nhận được dữ liệu từ ESP32.</Text>
+        )}
       </View>
     </ScrollView>
   );
