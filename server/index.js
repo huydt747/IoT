@@ -3,10 +3,12 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { getMessaging, isFirebaseInitialized } = require('./firebase');
+const { launchTunnel, closeTunnel } = require('./tunnel');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DEFAULT_TOPIC = process.env.DEFAULT_NOTIFICATION_TOPIC || 'kholanh_alerts';
+let currentTunnelUrl = null;
 
 app.use(cors());
 app.use(express.json());
@@ -17,6 +19,7 @@ app.get('/', (req, res) => {
     status: 'online',
     service: 'Cold Storage IoT Push Notification Server (Firebase FCM)',
     firebaseReady: isFirebaseInitialized(),
+    tunnelUrl: currentTunnelUrl,
     endpoints: {
       sendToToken: 'POST /api/notify/token',
       sendToTopic: 'POST /api/notify/topic',
@@ -325,7 +328,24 @@ app.post('/api/topic/unsubscribe', requireFirebase, async (req, res) => {
 });
 
 // Khởi động Server
-app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   console.log(`🚀 [Server] Node.js Push Notification Server đang chạy tại: http://localhost:${PORT}`);
   console.log(`📌 [Server] Mở http://localhost:${PORT} trên trình duyệt để kiểm tra trạng thái.`);
+
+  // Tự động kết nối Cloudflare Tunnel qua untun nếu không bị tắt bởi biến môi trường
+  if (process.env.AUTO_TUNNEL !== 'false') {
+    currentTunnelUrl = await launchTunnel(PORT);
+  }
+});
+
+// Xử lý tắt server và đóng tunnel an toàn
+process.on('SIGINT', async () => {
+  console.log('\n🛑 Đang dừng server...');
+  await closeTunnel();
+  server.close(() => process.exit(0));
+});
+
+process.on('SIGTERM', async () => {
+  await closeTunnel();
+  server.close(() => process.exit(0));
 });

@@ -36,21 +36,34 @@ server/
 
 ---
 
-## 💻 Bước 2: Cài Đặt & Chạy Server
+## 💻 Bước 2: Cài Đặt & Chạy Server (Kèm Cloudflare Tunnel cho Wokwi)
 
 Mở terminal tại thư mục `server`:
 
 ```bash
 cd server
-npm install
 npm start
 ```
 
-Khi chạy thành công, terminal sẽ thông báo:
+Khi chạy `npm start`, server sẽ **tự động khởi động Cloudflare Tunnel (qua `untun`)** và in ra đường link HTTPS công khai:
 ```text
 ✅ [Firebase] Khởi tạo thành công từ file: .../server/serviceAccountKey.json
 🚀 [Server] Node.js Push Notification Server đang chạy tại: http://localhost:3000
+
+======================================================================
+🌐 [Cloudflare Tunnel] URL CÔNG KHAI ĐÃ SẴN SÀNG CHO WOKWI:
+👉 Base URL:    https://random-subdomain.trycloudflare.com
+👉 API Cảnh Báo: https://random-subdomain.trycloudflare.com/api/notify/alert
+======================================================================
 ```
+
+👉 **Cách dùng trên Wokwi**: Copy đường link `https://random-subdomain.trycloudflare.com` và dán vào biến `server_tunnel_url` trong `arduino/ArduinoCode.ino`:
+```cpp
+const char* server_tunnel_url = "https://random-subdomain.trycloudflare.com";
+```
+Khi Wokwi phát hiện nhiệt độ quá ngưỡng hoặc cửa mở quá 3 phút, nó sẽ gửi `HTTP POST` qua link Cloudflare này đến Server để bắn Push Notification tới ứng dụng điện thoại!
+
+*(Nếu bạn chỉ muốn mở riêng tunnel mà không chạy server: gõ lệnh `npm run tunnel`)*.
 
 ---
 
