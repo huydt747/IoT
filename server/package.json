@@ -1,0 +1,30 @@
+{
+  "name": "iot-push-notification-server",
+  "version": "1.0.0",
+  "description": "Node.js Firebase Cloud Messaging (FCM) Push Notification Server for IoT Cold Storage App",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "firebase-admin": "^14.5.0"
+  },
+  "keywords": [
+    "firebase",
+    "fcm",
+    "push-notification",
+    "express",
+    "iot",
+    "cold-storage"
+  ],
+  "author": "",
+  "license": "ISC",
+  "allowScripts": {
+    "@firebase/util@1.15.3": true,
+    "protobufjs@7.6.6": true
+  }
+}

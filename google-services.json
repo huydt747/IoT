@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "147430181243",
+    "project_id": "iotz-3210d",
+    "storage_bucket": "iotz-3210d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:147430181243:android:fb1f9216e3ab8981a995de",
+        "android_client_info": {
+          "package_name": "com.basv.iot"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6v-ZK7EE-E3PfV_G1aJIw5nOSLzrdiEI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
