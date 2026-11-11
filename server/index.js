@@ -9,6 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const DEFAULT_TOPIC = process.env.DEFAULT_NOTIFICATION_TOPIC || 'kholanh_alerts';
 let currentTunnelUrl = null;
+let lastRegisteredTokens = [];
 
 app.use(cors());
 app.use(express.json());
@@ -20,6 +21,7 @@ app.get('/', (req, res) => {
     service: 'Cold Storage IoT Push Notification Server (Firebase FCM)',
     firebaseReady: isFirebaseInitialized(),
     tunnelUrl: currentTunnelUrl,
+    latestToken: lastRegisteredTokens[0] || null,
     endpoints: {
       sendToToken: 'POST /api/notify/token',
       sendToTopic: 'POST /api/notify/topic',
@@ -27,7 +29,16 @@ app.get('/', (req, res) => {
       sendColdStorageAlert: 'POST /api/notify/alert',
       subscribeTopic: 'POST /api/topic/subscribe',
       unsubscribeTopic: 'POST /api/topic/unsubscribe',
+      getTokens: 'GET /api/tokens',
     },
+  });
+});
+
+app.get('/api/tokens', (req, res) => {
+  res.json({
+    count: lastRegisteredTokens.length,
+    tokens: lastRegisteredTokens,
+    latestToken: lastRegisteredTokens[0] || null,
   });
 });
 
@@ -291,8 +302,12 @@ app.post('/api/topic/subscribe', requireFirebase, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Thiếu tokens để đăng ký.' });
     }
 
+    lastRegisteredTokens = tokenList;
     const response = await getMessaging().subscribeToTopic(tokenList, topic);
     console.log(`📌 [Topic] Đã đăng ký ${response.successCount} token vào topic "${topic}"`);
+    console.log('\n🔑 [FCM REGISTRATION TOKEN CHO FIREBASE CONSOLE]:');
+    console.log(tokenList[0]);
+    console.log('👉 Copy mã token ở trên và dán vào mục "Test on device" trên Firebase Console!\n');
 
     return res.json({
       success: true,

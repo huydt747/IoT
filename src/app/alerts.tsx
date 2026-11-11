@@ -1,12 +1,28 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useColdStorage } from '../context/ColdStorageContext';
 
 export default function AlertsScreen() {
-  const { alerts, isBuzzerActive } = useColdStorage();
+  const {
+    alerts,
+    isBuzzerActive,
+    isPushRegistered,
+    pushStatusMessage,
+    triggerTestPush,
+  } = useColdStorage();
+
+  const [loading, setLoading] = React.useState(false);
+
+  const handleTest = async (type: 'temp_critical' | 'door_timeout') => {
+    setLoading(true);
+    const res = await triggerTestPush(type);
+    setLoading(false);
+    alert(res.message);
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Hardware / Alarm Status Card */}
       <View style={[styles.statusCard, { backgroundColor: isBuzzerActive ? '#ffebee' : '#e8f5e9' }]}>
         <Text style={styles.statusIcon}>{isBuzzerActive ? '🚨' : '✅'}</Text>
         <Text style={[styles.statusTitle, { color: isBuzzerActive ? '#d63031' : '#2e7d32' }]}>
@@ -19,7 +35,39 @@ export default function AlertsScreen() {
         </Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Nhật Ký Cảnh Báo MQTT ({alerts.length})</Text>
+      {/* Push Notification Server Status Card */}
+      <View style={styles.fcmBanner}>
+        <View style={styles.fcmHeaderRow}>
+          <Text style={styles.fcmTitle}>🔔 Firebase Push Notification Server</Text>
+          <View style={[styles.fcmBadge, { backgroundColor: isPushRegistered ? '#e8f5e9' : '#fff3e0' }]}>
+            <Text style={[styles.fcmBadgeText, { color: isPushRegistered ? '#2e7d32' : '#e67e22' }]}>
+              {isPushRegistered ? 'Đang hoạt động' : 'Chưa kết nối'}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.fcmDesc}>{pushStatusMessage}</Text>
+
+        <View style={styles.fcmBtnRow}>
+          <TouchableOpacity
+            disabled={loading}
+            style={[styles.fcmBtn, { backgroundColor: '#e74c3c' }]}
+            onPress={() => handleTest('temp_critical')}
+          >
+            <Text style={styles.fcmBtnText}>Gửi Push Quá Nhiệt</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            disabled={loading}
+            style={[styles.fcmBtn, { backgroundColor: '#e67e22' }]}
+            onPress={() => handleTest('door_timeout')}
+          >
+            <Text style={styles.fcmBtnText}>Gửi Push Cửa Mở</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Text style={styles.sectionTitle}>
+        Nhật Ký Cảnh Báo MQTT & Firebase ({alerts.length})
+      </Text>
 
       {alerts.length === 0 ? (
         <View style={styles.emptyBox}>
@@ -56,7 +104,7 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 18,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   statusIcon: {
     fontSize: 40,
@@ -71,6 +119,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#636e72',
     textAlign: 'center',
+  },
+  fcmBanner: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  fcmHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  fcmTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2d3436',
+  },
+  fcmBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  fcmBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  fcmDesc: {
+    fontSize: 12,
+    color: '#636e72',
+    marginBottom: 10,
+  },
+  fcmBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  fcmBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  fcmBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   sectionTitle: {
     fontSize: 16,

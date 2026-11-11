@@ -18,14 +18,14 @@ DHT dht(DHTPIN, DHTTYPE);
 // ===== CẤU HÌNH WIFI & MQTT =====
 const char* ssid        = "Wokwi-GUEST";
 const char* password    = "";
-const char* mqtt_server = "rbd0db1d.ala.asia-southeast1.emqxsl.com";  // EMQX Serverless của bạn
+const char* mqtt_server = "q283121a.ala.asia-southeast1.emqxsl.com";  // EMQX Serverless của bạn
 const int   mqtt_port   = 8883;
-const char* mqtt_user   = "3sv";   // Điền từ EMQX Dashboard
-const char* mqtt_pass   = "1234567890";   // Điền từ EMQX Dashboard
+const char* mqtt_user   = "admin";   // Điền từ EMQX Dashboard
+const char* mqtt_pass   = "123";   // Điền từ EMQX Dashboard
 
 // ===== TOPIC =====
-const char* topic_data    = "test";
-const char* topic_alert   = "test";
+const char* topic_data    = "esp8266/dht11";
+const char* topic_alert   = "kholanh_alerts";
 
 WiFiClientSecure espClient;
 PubSubClient client(espClient);
@@ -40,7 +40,7 @@ const float TEMP_THRESHOLD = -15.0;     // Ngưỡng nhiệt độ an toàn cho 
 
 // ===== CLOUDFLARE TUNNEL (NODE.JS FIREBASE PUSH SERVER) =====
 // Dán link https://xxxx.trycloudflare.com (in ra khi chạy "npm start" ở server) vào đây:
-const char* server_tunnel_url = "";
+const char* server_tunnel_url = "https://hunt-trout-vbulletin-inquiries.trycloudflare.com";
 
 void sendPushNotification(String alertType, float temperature, unsigned long durationSec) {
   if (WiFi.status() != WL_CONNECTED) return;
