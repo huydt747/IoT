@@ -240,25 +240,30 @@ export function ColdStorageProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    const notificationSubscription = Notifications.addNotificationReceivedListener((notification) => {
-      console.log('[Notification Received]:', notification);
-    });
+    let notificationSubscription: { remove: () => void } | undefined;
+    let responseSubscription: { remove: () => void } | undefined;
 
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      const data = response.notification.request.content.data;
-      if (data?.screen === 'temperature') {
-        router.push('/temperature' as any);
-      } else if (data?.screen === 'door') {
-        router.push('/door' as any);
-      } else {
-        router.push('/alerts' as any);
-      }
-    });
+    if (Platform.OS !== 'web') {
+      notificationSubscription = Notifications.addNotificationReceivedListener((notification) => {
+        console.log('[Notification Received]:', notification);
+      });
+
+      responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data;
+        if (data?.screen === 'temperature') {
+          router.push('/temperature' as any);
+        } else if (data?.screen === 'door') {
+          router.push('/door' as any);
+        } else {
+          router.push('/alerts' as any);
+        }
+      });
+    }
 
     return () => {
       isMounted = false;
-      notificationSubscription.remove();
-      responseSubscription.remove();
+      notificationSubscription?.remove();
+      responseSubscription?.remove();
     };
   }, []);
 
