@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const { admin, isFirebaseInitialized } = require('./firebase');
+const { getMessaging, isFirebaseInitialized } = require('./firebase');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -79,7 +79,7 @@ app.post('/api/notify/token', requireFirebase, async (req, res) => {
       },
     };
 
-    const response = await admin.messaging().send(message);
+    const response = await getMessaging().send(message);
     console.log('📨 [FCM] Đã gửi thông báo tới token thành công:', response);
 
     return res.json({
@@ -137,7 +137,7 @@ app.post('/api/notify/topic', requireFirebase, async (req, res) => {
       },
     };
 
-    const response = await admin.messaging().send(message);
+    const response = await getMessaging().send(message);
     console.log(`📨 [FCM] Đã gửi thông báo tới topic "${topic}":`, response);
 
     return res.json({
@@ -185,7 +185,7 @@ app.post('/api/notify/multicast', requireFirebase, async (req, res) => {
       },
     };
 
-    const response = await admin.messaging().sendEachForMulticast(message);
+    const response = await getMessaging().sendEachForMulticast(message);
     console.log(`📨 [FCM] Gửi multicast: ${response.successCount} thành công, ${response.failureCount} thất bại.`);
 
     return res.json({
@@ -259,7 +259,7 @@ app.post('/api/notify/alert', requireFirebase, async (req, res) => {
       },
     };
 
-    const response = await admin.messaging().send(message);
+    const response = await getMessaging().send(message);
     console.log(`🚨 [Alert FCM] Đã phát cảnh báo kho lạnh tới topic "${topic}":`, response);
 
     return res.json({
@@ -288,7 +288,7 @@ app.post('/api/topic/subscribe', requireFirebase, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Thiếu tokens để đăng ký.' });
     }
 
-    const response = await admin.messaging().subscribeToTopic(tokenList, topic);
+    const response = await getMessaging().subscribeToTopic(tokenList, topic);
     console.log(`📌 [Topic] Đã đăng ký ${response.successCount} token vào topic "${topic}"`);
 
     return res.json({
@@ -312,7 +312,7 @@ app.post('/api/topic/unsubscribe', requireFirebase, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Thiếu tokens để hủy đăng ký.' });
     }
 
-    const response = await admin.messaging().unsubscribeFromTopic(tokenList, topic);
+    const response = await getMessaging().unsubscribeFromTopic(tokenList, topic);
     return res.json({
       success: true,
       topic,

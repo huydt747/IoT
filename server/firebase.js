@@ -1,4 +1,5 @@
-const admin = require('firebase-admin');
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
@@ -6,8 +7,9 @@ require('dotenv').config();
 let isFirebaseInitialized = false;
 
 function initFirebase() {
-  if (admin.apps.length > 0) {
-    return admin;
+  if (getApps().length > 0) {
+    isFirebaseInitialized = true;
+    return;
   }
 
   const keyPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || path.join(__dirname, 'serviceAccountKey.json');
@@ -16,22 +18,22 @@ function initFirebase() {
   try {
     if (fs.existsSync(resolvedPath)) {
       const serviceAccount = JSON.parse(fs.readFileSync(resolvedPath, 'utf8'));
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
+      initializeApp({
+        credential: cert(serviceAccount),
       });
       isFirebaseInitialized = true;
       console.log('✅ [Firebase] Khởi tạo thành công từ file:', resolvedPath);
-      return admin;
+      return;
     }
 
     if (process.env.FIREBASE_SERVICE_ACCOUNT) {
       const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
+      initializeApp({
+        credential: cert(serviceAccount),
       });
       isFirebaseInitialized = true;
       console.log('✅ [Firebase] Khởi tạo thành công từ biến môi trường FIREBASE_SERVICE_ACCOUNT');
-      return admin;
+      return;
     }
 
     console.warn('\n⚠️ [Firebase Warning] Chưa tìm thấy file "serviceAccountKey.json"!');
@@ -41,14 +43,11 @@ function initFirebase() {
   } catch (error) {
     console.error('❌ [Firebase Error] Lỗi khi khởi tạo Firebase Admin SDK:', error.message);
   }
-
-  return admin;
 }
 
 initFirebase();
 
 module.exports = {
-  admin,
-  messaging: admin.messaging,
+  getMessaging,
   isFirebaseInitialized: () => isFirebaseInitialized,
 };
