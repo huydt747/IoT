@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ColdStorageProvider } from '../context/ColdStorageContext';
 import BTContextProvider from '../Provider/BTContextProvider';
@@ -8,8 +8,22 @@ import BTContextProvider from '../Provider/BTContextProvider';
 function CustomHeader() {
   return (
     <View style={styles.headerContainer}>
-      <Text style={styles.headerTitle}>Kho Lạnh Thông Minh</Text>
-      <Text style={styles.headerSubtitle}>ESP32 Wokwi • Quản Lý Nhiệt Độ</Text>
+      <View style={styles.headerContent}>
+        <View style={styles.headerSpacer} />
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle}>Kho Lạnh Thông Minh</Text>
+          <Text style={styles.headerSubtitle}>ESP32 Wokwi • Quản Lý Nhiệt Độ</Text>
+        </View>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Mở cài đặt"
+          activeOpacity={0.75}
+          onPress={() => router.push('/settings')}
+          style={styles.settingsButton}
+        >
+          <Text style={styles.settingsIcon}>⚙</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -37,13 +51,19 @@ export default function RootLayout() {
           <Stack.Screen
             name="index"
             options={{
-              header: () => <CustomHeader />,
+              headerShown: false,
             }}
           />
           <Stack.Screen
             name="temperature"
             options={{
-              title: 'Nhiệt Độ & Lịch Sử Đo',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="settings"
+            options={{
+              title: 'Cài Đặt',
               headerBackTitle: 'Quay lại',
             }}
           />
@@ -89,8 +109,37 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
+  headerContent: {
+    width: '100%',
+    minHeight: 44,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  headerSpacer: {
+    width: 44,
+  },
+  headerText: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  settingsButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  settingsIcon: {
+    color: '#ffffff',
+    fontSize: 23,
+    lineHeight: 28,
+    textAlign: 'center',
+  },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
     color: '#ffffff',
     letterSpacing: 0.5,

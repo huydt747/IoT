@@ -43,6 +43,7 @@ export interface ColdStorageState {
   doorOpen: boolean;
   exposureSec: number;
   tempThreshold: number; // default -15.0 °C
+  setTempThreshold: (temp: number) => void;
   doorThresholdSec: number; // default 180s (3 minutes)
   isTempCritical: boolean;
   isBuzzerActive: boolean;
@@ -103,7 +104,7 @@ export function ColdStorageProvider({ children }: { children: ReactNode }) {
   const [humidity, setHumidity] = useState<number>(0);
   const [doorOpen, setDoorOpen] = useState<boolean>(false);
   const [exposureSec, setExposureSec] = useState<number>(0);
-  const [tempThreshold] = useState<number>(-15.0);
+  const [tempThreshold, setTempThreshold] = useState<number>(-15.0);
   const [doorThresholdSec] = useState<number>(180);
   const [history, setHistory] = useState<TempRecord[]>([]);
   const [alerts, setAlerts] = useState<AlertRecord[]>([]);
@@ -470,8 +471,25 @@ export function ColdStorageProvider({ children }: { children: ReactNode }) {
   };
 
   const setTemperatureDirect = (newTemp: number) => {
-    setTemperature(newTemp);
+    const formatted = parseFloat(newTemp.toFixed(1));
+    setTemperature(formatted);
     setHasTelemetry(true);
+    const now = new Date();
+    const timestamp = now.getTime();
+    const timeStr = now.toTimeString().split(' ')[0];
+    setHistory((prev) => [
+      {
+        id: timestamp.toString(),
+        timeStr,
+        timestamp,
+        temperature: formatted,
+        humidity: humidity || 76.5,
+        doorOpen,
+        exposureSec,
+        isAlert: formatted > tempThreshold,
+      },
+      ...prev.slice(0, 49),
+    ]);
   };
 
   const clearHistory = () => {
@@ -486,6 +504,7 @@ export function ColdStorageProvider({ children }: { children: ReactNode }) {
         doorOpen,
         exposureSec,
         tempThreshold,
+        setTempThreshold,
         doorThresholdSec,
         isTempCritical,
         isBuzzerActive,
